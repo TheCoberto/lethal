@@ -11,6 +11,7 @@ Pick any place on the map and see how dangerous it is, broken down by category.
 | Crime & violence | FBI violent crime rates, `data/crime.json` (state level) | All 50 states + DC |
 | Roads | NHTSA/IIHS traffic deaths, `data/traffic.json` (state level) | All 50 states + DC |
 | Environment | [Open-Meteo Air Quality](https://open-meteo.com/en/docs/air-quality-api) (30-day AQI, PM2.5) + [EPA Superfund NPL sites](https://www.epa.gov/superfund/search-superfund-sites-where-you-live) within 10 mi | Air worldwide; Superfund US only |
+| Health & disease | [CDC PLACES](https://www.cdc.gov/places/) county rates: poor health, smoking, obesity, diabetes, heart disease, uninsured | US counties |
 
 ## Run locally
 
@@ -40,6 +41,7 @@ data/             static datasets
 - [x] Wildlife data for all 50 states + DC
 - [x] Shareable links (`#lat,lon` in the URL)
 - [ ] Wildlife data for other countries
+- [x] Rankings: top 10-100 most dangerous counties/states per category
 - [ ] Compare two places side by side
 - [ ] PWA: installable and offline
 

@@ -1,5 +1,6 @@
-import { geocode, reverseGeocode, earthquakes, wildlife, crime, nationalRiskIndex, NRI_HAZARDS, traffic, airQuality, superfundSites } from './api.js';
-import { scoreDisasters, scoreWildlife, scoreCrime, scoreRoads, scoreEnvironment, overall, color } from './score.js';
+import { geocode, reverseGeocode, earthquakes, wildlife, crime, nationalRiskIndex, NRI_HAZARDS, traffic, airQuality, superfundSites, health, HEALTH_MEASURES } from './api.js';
+import { scoreDisasters, scoreWildlife, scoreCrime, scoreRoads, scoreEnvironment, scoreHealth, overall, color } from './score.js';
+import { CATEGORIES, topPlaces } from './rankings.js';
 
 const map = L.map('map', { worldCopyJump: true }).setView([39.5, -98.35], 4);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
@@ -31,13 +32,15 @@ async function analyze(lat, lon) {
   panel.innerHTML = '<p class="hint">Analyzing…</p>';
 
   try {
-    const [place, quakes, wild, crimes, nri, roads, air, sites] = await Promise.all([
+    const nriLookup = nationalRiskIndex(lat, lon).catch(() => null);
+    const [place, quakes, wild, crimes, nri, roads, air, sites, rates] = await Promise.all([
       reverseGeocode(lat, lon), earthquakes(lat, lon), wildlife(), crime(),
       // optional sources: don't fail the whole lookup
-      nationalRiskIndex(lat, lon).catch(() => null),
+      nriLookup,
       traffic(),
       airQuality(lat, lon).catch(() => null),
       superfundSites(lat, lon).catch(() => null),
+      nriLookup.then(n => health(n?.STCOFIPS)).catch(() => null), // CDC data is keyed by county FIPS
     ]);
 
     const categories = [
@@ -46,6 +49,7 @@ async function analyze(lat, lon) {
       { name: '🔪 Crime & Violence', ...scoreCrime(crimes, place.state) },
       { name: '🚗 Roads', ...scoreRoads(roads, place.state) },
       { name: '☣️ Environment', ...scoreEnvironment(air, place.state ? sites : null) },
+      { name: '🦠 Health & Disease', ...scoreHealth(rates, HEALTH_MEASURES) },
     ];
     render(place.name, categories);
   } catch (err) {
@@ -72,6 +76,58 @@ function card(c) {
       <div class="bar"><span style="width:${c.score ?? 0}%;background:${color(c.score)}"></span></div>
       <ul>${c.details.map(d => `<li>${escape(d)}</li>`).join('')}</ul>
     </div>`;
+}
+
+// Rankings: pick a category and how many, click a row to analyze that place.
+let rankKey = 'overall';
+let rankCount = 25;
+let rankRequest = 0;
+
+document.getElementById('rankings-btn').addEventListener('click', showRankings);
+
+async function showRankings() {
+  const request = ++rankRequest; // ignore results from an older, slower selection
+  panel.innerHTML = `
+    <div class="rank-controls">
+      <select id="rank-cat">${Object.entries(CATEGORIES).map(([k, c]) =>
+        `<option value="${k}" ${k === rankKey ? 'selected' : ''}>${c.label}</option>`).join('')}</select>
+      <select id="rank-n">${[10, 25, 50, 100].map(n =>
+        `<option ${n === rankCount ? 'selected' : ''}>${n}</option>`).join('')}</select>
+    </div>
+    <p class="hint" id="rank-status">Loading…</p>
+    <ol class="rank-list" id="rank-list"></ol>`;
+  document.getElementById('rank-cat').onchange = e => { rankKey = e.target.value; showRankings(); };
+  document.getElementById('rank-n').onchange = e => { rankCount = +e.target.value; showRankings(); };
+
+  try {
+    const rows = await topPlaces(rankKey, rankCount);
+    if (request !== rankRequest) return;
+    const { unit } = CATEGORIES[rankKey];
+    document.getElementById('rank-status').textContent =
+      `Top ${rows.length} ${unit} by ${unit === 'states' ? 'state-level ' : ''}score. Click one to see its full breakdown.`;
+    const list = document.getElementById('rank-list');
+    list.innerHTML = rows.map((r, i) => `
+      <li data-i="${i}">
+        <span class="rank-name">${escape(r.name)}</span>
+        <span class="rank-score" style="color:${color(r.score)}">${r.score}</span>
+      </li>`).join('');
+    list.onclick = e => {
+      const li = e.target.closest('li');
+      if (li) goTo(rows[+li.dataset.i]);
+    };
+  } catch (err) {
+    if (request === rankRequest) document.getElementById('rank-status').textContent = `Couldn't load rankings: ${err.message}`;
+  }
+}
+
+async function goTo(row) {
+  try {
+    const { lat, lon } = row.lat != null ? row : await geocode(row.query);
+    map.setView([lat, lon], row.query ? 6 : 8);
+    analyze(lat, lon);
+  } catch (err) {
+    panel.innerHTML = `<p class="hint">${escape(err.message)}</p>`;
+  }
 }
 
 // Shareable links: #lat,lon in the URL reopens that spot.

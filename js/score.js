@@ -111,3 +111,30 @@ export function scoreEnvironment(air, sites) {
   const score = parts.length ? Math.round(parts.reduce((sum, p) => sum + p.score * p.weight, 0) / totalWeight) : null;
   return { score, details };
 }
+
+// Rough US county ranges (age-adjusted %) used to normalise each measure to 0-100.
+const HEALTH_RANGES = {
+  GHLTH: [10, 35], CSMOKING: [8, 32], OBESITY: [22, 48],
+  DIABETES: [6, 20], CHD: [4, 11], ACCESS2: [4, 32],
+};
+
+/** Average of each measure's position in its national range (0 = healthiest counties, 100 = least healthy). */
+export function healthScore(rates) {
+  const parts = Object.entries(HEALTH_RANGES)
+    .filter(([k]) => rates[k] != null)
+    .map(([k, [lo, hi]]) => Math.max(0, Math.min(100, ((rates[k] - lo) / (hi - lo)) * 100)));
+  return parts.length ? Math.round(parts.reduce((a, b) => a + b, 0) / parts.length) : null;
+}
+
+export function scoreHealth(rates, names) {
+  if (!rates) return { score: null, details: ['No CDC county health data for this area (US only)'] };
+  const worst = Object.keys(HEALTH_RANGES)
+    .filter(k => rates[k] != null)
+    .sort((a, b) => {
+      const pos = k => (rates[k] - HEALTH_RANGES[k][0]) / (HEALTH_RANGES[k][1] - HEALTH_RANGES[k][0]);
+      return pos(b) - pos(a);
+    })
+    .slice(0, 4)
+    .map(k => `${names[k]}: ${rates[k]}%`);
+  return { score: healthScore(rates), details: [...worst, 'County rates, CDC PLACES (age-adjusted)'] };
+}
