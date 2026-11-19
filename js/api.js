@@ -70,7 +70,8 @@ export async function nationalRiskIndex(lat, lon) {
     geometry: `${lon},${lat}`, geometryType: 'esriGeometryPoint', inSR: 4326,
     spatialRel: 'esriSpatialRelIntersects', returnGeometry: false, f: 'json',
     outFields: ['COUNTY', 'COUNTYTYPE', 'STATEABBRV', 'STCOFIPS', 'POPULATION', 'EAL_VALP',
-      ...Object.keys(NRI_HAZARDS).map(k => `${k}_EALP`)].join(','),
+      // Drought has no _EALP field (FEMA models it as crop loss only); asking for it fails the query.
+      ...Object.keys(NRI_HAZARDS).filter(k => k !== 'DRGT').map(k => `${k}_EALP`)].join(','),
   });
   const data = await (await fetch(`${NRI}?${params}`)).json();
   return data.features?.[0]?.attributes ?? null;
