@@ -55,11 +55,6 @@ footer { padding: 0.5rem 1rem; font-size: 0.8rem; text-align: center; }
 .card ul { margin: 0.5rem 0 0; padding-left: 1.1rem; color: var(--muted); font-size: 0.9rem; }
 .card.pending { opacity: 0.6; }
 
-@media (max-width: 800px) {
-  body { height: auto; }
-  main { grid-template-columns: 1fr; }
-  #map { height: 50vh; }
-}
 
 button.secondary { background: transparent; border: 1px solid #333; color: var(--text); }
 button.secondary:hover { border-color: var(--accent); }
@@ -117,4 +112,25 @@ button.link {
 .pin-label {
   background: var(--accent); color: #fff; border: 2px solid #fff; border-radius: 50%;
   font: 700 13px/22px system-ui, sans-serif; text-align: center; box-shadow: 0 1px 4px #000a;
+}
+
+/* Phones and narrow windows: stack map above results. */
+@media (max-width: 800px) {
+  body { height: auto; }
+  header { padding: 0.5rem 1rem; gap: 0.5rem; }
+  h1 { font-size: 1.15rem; }
+  #search-form { order: 3; flex-basis: 100%; max-width: none; } /* search gets its own full-width row */
+  #rankings-btn { padding: 0.4rem 0.75rem; }
+  /* minmax(0, ...) stops wide content (tables, long names) from stretching the page past the screen */
+  main { grid-template-columns: minmax(0, 1fr); }
+  #map { height: 45vh; min-height: 260px; }
+  #panel { overflow: visible; }
+  .card ul { overflow-wrap: anywhere; }
+  .shade-control { max-width: 160px; padding: 0.35rem 0.5rem; font-size: 0.75rem; }
+  .shade-control select { max-width: 100%; }
+  .compare { font-size: 0.8rem; }
+  .compare tbody th { width: 30%; padding-left: 0; }
+  .compare tr.total td { font-size: 1.1rem; }
+  .compare thead th { overflow-wrap: anywhere; }
+  footer { font-size: 0.7rem; }
 }

@@ -65,6 +65,11 @@ document.getElementById('shade-cat').addEventListener('change', async e => {
 });
 
 const panel = document.getElementById('panel');
+
+// On phones the panel sits below the map, so bring whichever one needs attention into view.
+const isNarrow = () => matchMedia('(max-width: 800px)').matches;
+const scrollToPanel = () => isNarrow() && panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+const scrollToMap = () => isNarrow() && document.getElementById('map').scrollIntoView({ behavior: 'smooth', block: 'start' });
 let marker;
 
 map.on('click', e => analyze(e.latlng.lat, e.latlng.wrap().lng));
@@ -104,6 +109,7 @@ async function analyze(lat, lon) {
   marker = placeMarker(lat, lon);
   history.replaceState(null, '', `#${lat.toFixed(4)},${lon.toFixed(4)}`);
   panel.innerHTML = '<p class="hint">Analyzing…</p>';
+  scrollToPanel();
   try {
     const place = await assess(lat, lon);
     if (request !== analyzeRequest) return;
@@ -125,6 +131,7 @@ async function compareWith(lat, lon) {
   map.fitBounds(L.latLngBounds([[a.lat, a.lon], [lat, lon]]), { padding: [60, 60], maxZoom: 8 });
   history.replaceState(null, '', `#${coord(a)};${lat.toFixed(4)},${lon.toFixed(4)}`);
   panel.innerHTML = '<p class="hint">Comparing…</p>';
+  scrollToPanel();
   try {
     const b = await assess(lat, lon);
     if (request === analyzeRequest) renderCompare(a, b);
@@ -176,6 +183,7 @@ function render(place) {
 }
 
 function startCompare() {
+  scrollToMap(); // on phones the map is above the panel; bring it into view to pick place B
   comparing = true;
   const box = document.getElementById('compare-actions');
   box.innerHTML = `
@@ -261,6 +269,7 @@ let rankRequest = 0;
 document.getElementById('rankings-btn').addEventListener('click', showRankings);
 
 async function showRankings() {
+  scrollToPanel();
   const request = ++rankRequest; // ignore results from an older, slower selection
   panel.innerHTML = `
     <div class="rank-controls">
