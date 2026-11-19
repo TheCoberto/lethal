@@ -43,14 +43,18 @@ export const CATEGORIES = {
     load: async () => { const d = await wildlife(); return rankStates(s => scoreWildlife(d, s).score); },
   },
   overallCounties: {
-    label: '☠️ Overall by county (Disasters + Health)', unit: 'counties',
+    // Disasters + Health are true county data; Crime + Roads are the county's state rates.
+    label: '☠️ Overall by county (Disasters, Health, Crime, Roads)', unit: 'counties',
     load: async () => {
-      const [risk, healthRows] = await Promise.all([allRiskCounties(), healthAllCounties()]);
+      const [risk, healthRows, c, t] = await Promise.all([allRiskCounties(), healthAllCounties(), crime(), traffic()]);
       const riskByFips = new Map(risk.map(r => [r.fips, r.score]));
-      return healthRows.map(c => {
-        const scores = [riskByFips.get(c.fips), healthScore(c.rates)].filter(x => x != null);
+      return healthRows.map(c0 => {
+        const scores = [
+          riskByFips.get(c0.fips), healthScore(c0.rates),
+          scoreCrime(c, c0.state).score, scoreRoads(t, c0.state).score,
+        ].filter(x => x != null);
         const score = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
-        return { fips: c.fips, name: c.name, lat: c.lat, lon: c.lon, score };
+        return { fips: c0.fips, name: c0.name, lat: c0.lat, lon: c0.lon, score };
       });
     },
   },

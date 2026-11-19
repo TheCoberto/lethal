@@ -146,7 +146,7 @@ export async function healthAllCounties() {
       let c = counties.get(r.locationid);
       if (!c) {
         const [lon, lat] = r.geolocation?.coordinates ?? [];
-        counties.set(r.locationid, c = { fips: r.locationid, name: `${r.locationname}, ${r.stateabbr}`, lat, lon, rates: {} });
+        counties.set(r.locationid, c = { fips: r.locationid, state: r.stateabbr, name: `${r.locationname}, ${r.stateabbr}`, lat, lon, rates: {} });
       }
       c.rates[r.measureid] = +r.data_value;
     }
