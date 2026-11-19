@@ -50,3 +50,24 @@ export async function crime() {
   crimeCache ??= await (await fetch('data/crime.json')).json();
   return crimeCache;
 }
+
+const NRI = 'https://services.arcgis.com/XG15cJAlne2vxtgt/arcgis/rest/services/National_Risk_Index_Counties/FeatureServer/0/query';
+export const NRI_HAZARDS = {
+  AVLN: 'Avalanche', CFLD: 'Coastal flooding', CWAV: 'Cold wave', DRGT: 'Drought',
+  ERQK: 'Earthquake', HAIL: 'Hail', HWAV: 'Heat wave', HRCN: 'Hurricane',
+  ISTM: 'Ice storm', LNDS: 'Landslide', LTNG: 'Lightning', IFLD: 'Inland flooding',
+  SWND: 'Strong wind', TRND: 'Tornado', TSUN: 'Tsunami', VLCN: 'Volcanic activity',
+  WFIR: 'Wildfire', WNTW: 'Winter weather',
+};
+
+/** FEMA National Risk Index for the US county containing the point, or null outside the US. */
+export async function nationalRiskIndex(lat, lon) {
+  const params = new URLSearchParams({
+    geometry: `${lon},${lat}`, geometryType: 'esriGeometryPoint', inSR: 4326,
+    spatialRel: 'esriSpatialRelIntersects', returnGeometry: false, f: 'json',
+    outFields: ['COUNTY', 'COUNTYTYPE', 'STATEABBRV', 'RISK_SCORE', 'RISK_RATNG',
+      ...Object.keys(NRI_HAZARDS).flatMap(k => [`${k}_RISKS`, `${k}_RISKR`])].join(','),
+  });
+  const data = await (await fetch(`${NRI}?${params}`)).json();
+  return data.features?.[0]?.attributes ?? null;
+}

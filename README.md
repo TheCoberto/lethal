@@ -6,7 +6,7 @@ Pick any place on the map and see how dangerous it is, broken down by category.
 
 | Category | Source | Status |
 |---|---|---|
-| Natural disasters | [USGS Earthquake API](https://earthquake.usgs.gov/fdsnws/event/1/) | Earthquakes live |
+| Natural disasters | [FEMA National Risk Index](https://hazards.fema.gov/nri/) (18 hazards, US counties) + [USGS earthquakes](https://earthquake.usgs.gov/fdsnws/event/1/) | Live; earthquakes only outside the US |
 | Wildlife | Curated `data/wildlife.json` (US states) | All 50 states + DC |
 | Crime & violence | FBI violent crime rates, `data/crime.json` (state level) | All 50 states + DC |
 
@@ -33,7 +33,7 @@ data/             static datasets
 
 ## Roadmap
 
-- [ ] FEMA National Risk Index (floods, hurricanes, tornadoes, wildfire...)
+- [x] FEMA National Risk Index (floods, hurricanes, tornadoes, wildfire...)
 - [x] Crime data (state level; city/county next)
 - [x] Wildlife data for all 50 states + DC
 - [x] Shareable links (`#lat,lon` in the URL)

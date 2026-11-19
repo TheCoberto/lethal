@@ -15,6 +15,27 @@ export function scoreWildlife(data, state) {
   return { score: entry.score, details: entry.threats };
 }
 
+/**
+ * FEMA NRI composite score (national percentile, 0-100) for US counties,
+ * plus the top hazards. Falls back to earthquakes alone outside the US.
+ */
+export function scoreDisasters(nri, hazardNames, quakes) {
+  const quake = scoreEarthquakes(quakes);
+  if (!nri || nri.RISK_SCORE == null) {
+    return { score: quake.score, details: ['FEMA risk data is US-only; earthquakes only here', ...quake.details] };
+  }
+  const top = Object.entries(hazardNames)
+    .map(([k, name]) => ({ name, score: nri[`${k}_RISKS`], rating: nri[`${k}_RISKR`] }))
+    .filter(h => h.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 4)
+    .map(h => `${h.name}: ${h.rating} (${Math.round(h.score)})`);
+  return {
+    score: Math.round(nri.RISK_SCORE),
+    details: [`${nri.COUNTY} ${nri.COUNTYTYPE ?? 'County'} overall risk: ${nri.RISK_RATNG}`, ...top, quake.details[0]],
+  };
+}
+
 /** Violent crime rate per 100k: ~100 scores low, ~800 scores high. */
 export function scoreCrime(data, state) {
   const rate = state && data[state];
