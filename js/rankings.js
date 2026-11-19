@@ -42,8 +42,20 @@ export const CATEGORIES = {
     label: '🐍 Wildlife', unit: 'states',
     load: async () => { const d = await wildlife(); return rankStates(s => scoreWildlife(d, s).score); },
   },
+  overallCounties: {
+    label: '☠️ Overall by county (Disasters + Health)', unit: 'counties',
+    load: async () => {
+      const [risk, healthRows] = await Promise.all([allRiskCounties(), healthAllCounties()]);
+      const riskByFips = new Map(risk.map(r => [r.fips, r.score]));
+      return healthRows.map(c => {
+        const scores = [riskByFips.get(c.fips), healthScore(c.rates)].filter(x => x != null);
+        const score = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+        return { fips: c.fips, name: c.name, lat: c.lat, lon: c.lon, score };
+      });
+    },
+  },
   overall: {
-    label: '☠️ Overall (state-level categories)', unit: 'states',
+    label: '☠️ Overall by state (Crime + Roads + Wildlife)', unit: 'states',
     load: async () => {
       const [c, t, w] = await Promise.all([crime(), traffic(), wildlife()]);
       return rankStates(s => {
