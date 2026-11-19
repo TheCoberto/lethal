@@ -18,7 +18,9 @@ export async function reverseGeocode(lat, lon) {
   const a = data.address || {};
   const iso = a['ISO3166-2-lvl4'] || ''; // e.g. "US-CA"
   return {
-    name: [a.city || a.town || a.county, a.state, a.country].filter(Boolean).join(', ') || 'Unknown location',
+    // Drop the country for US places to keep names short ("Miami, Florida").
+    name: [a.city || a.town || a.county, a.state, a.country_code === 'us' ? null : a.country]
+      .filter(Boolean).join(', ') || 'Unknown location',
     state: iso.startsWith('US-') ? iso.slice(3) : null,
   };
 }

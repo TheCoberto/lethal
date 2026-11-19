@@ -9,7 +9,7 @@ const map = L.map('map', { worldCopyJump: true }).setView([39.5, -98.35], 4);
 // Labels live in their own pane above the coloured regions so names stay readable.
 const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas';
 map.createPane('labels');
-map.getPane('labels').style.zIndex = 650;
+map.getPane('labels').style.zIndex = 450; // above shading (400), below markers (600)
 map.getPane('labels').style.pointerEvents = 'none';
 L.tileLayer(`${ESRI}/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}`, {
   attribution: 'Tiles &copy; Esri, HERE, Garmin, &copy; OpenStreetMap contributors', maxZoom: 16,
