@@ -1,0 +1,12 @@
+{
+  "AK": { "score": 55, "threats": ["Brown/grizzly and polar bears", "Moose", "Cold-water marine hazards"] },
+  "AZ": { "score": 60, "threats": ["Rattlesnakes (13 species)", "Arizona bark scorpion", "Gila monster", "Africanized bees"] },
+  "CA": { "score": 40, "threats": ["Mountain lions", "Rattlesnakes", "Great white sharks"] },
+  "FL": { "score": 65, "threats": ["American alligators", "Sharks (most US bites)", "Coral snakes and cottonmouths", "Mosquito-borne disease"] },
+  "HI": { "score": 35, "threats": ["Tiger sharks", "Box jellyfish", "Strong ocean currents"] },
+  "LA": { "score": 50, "threats": ["Alligators", "Cottonmouths and copperheads", "Brown recluse spiders"] },
+  "MT": { "score": 50, "threats": ["Grizzly bears", "Bison", "Mountain lions"] },
+  "NM": { "score": 45, "threats": ["Rattlesnakes", "Hantavirus (rodents)", "Plague (prairie dogs)"] },
+  "TX": { "score": 60, "threats": ["Rattlesnakes, coral snakes, cottonmouths", "Africanized bees", "Feral hogs", "Alligators"] },
+  "WY": { "score": 50, "threats": ["Grizzly bears", "Bison", "Moose"] }
+}
