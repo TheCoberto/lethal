@@ -42,6 +42,7 @@ data/             static datasets
 - [x] Shareable links (`#lat,lon` in the URL)
 - [ ] Wildlife data for other countries
 - [x] Rankings: top 10-100 most dangerous counties/states per category
+- [x] Color the map by any category (state or county shading)
 - [ ] Compare two places side by side
 - [ ] PWA: installable and offline
 

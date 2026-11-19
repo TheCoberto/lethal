@@ -146,7 +146,7 @@ export async function healthAllCounties() {
       let c = counties.get(r.locationid);
       if (!c) {
         const [lon, lat] = r.geolocation?.coordinates ?? [];
-        counties.set(r.locationid, c = { name: `${r.locationname}, ${r.stateabbr}`, lat, lon, rates: {} });
+        counties.set(r.locationid, c = { fips: r.locationid, name: `${r.locationname}, ${r.stateabbr}`, lat, lon, rates: {} });
       }
       c.rates[r.measureid] = +r.data_value;
     }
@@ -168,4 +168,23 @@ export async function topRiskCounties(n) {
     name: `${a.COUNTY} ${a.COUNTYTYPE}, ${a.STATEABBRV}`, score: Math.round(a.RISK_SCORE),
     lat: centroid?.y, lon: centroid?.x,
   }));
+}
+
+/** Every US county's FEMA NRI composite score as [{ fips, score }] (paged: the service caps pages at 2000). */
+let allRiskCache;
+export async function allRiskCounties() {
+  allRiskCache ??= (async () => {
+    const rows = [];
+    for (let offset = 0; ; offset += 2000) {
+      const params = new URLSearchParams({
+        where: 'RISK_SCORE IS NOT NULL', outFields: 'STCOFIPS,RISK_SCORE', orderByFields: 'STCOFIPS',
+        returnGeometry: false, resultOffset: offset, resultRecordCount: 2000, f: 'json',
+      });
+      const data = await (await fetch(`${NRI}?${params}`)).json();
+      if (data.error) throw new Error(data.error.message);
+      rows.push(...data.features.map(({ attributes: a }) => ({ fips: a.STCOFIPS, score: Math.round(a.RISK_SCORE) })));
+      if (!data.exceededTransferLimit) return rows;
+    }
+  })();
+  return allRiskCache;
 }

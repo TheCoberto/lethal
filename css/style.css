@@ -75,3 +75,20 @@ button.secondary:hover { border-color: var(--accent); }
 .rank-list li > span { display: inline-flex; }
 .rank-name { color: var(--text); }
 .rank-score { float: right; font-weight: 700; }
+
+.shade-control {
+  background: var(--surface); color: var(--text); padding: 0.5rem 0.75rem;
+  border-radius: 8px; font-size: 0.85rem; box-shadow: 0 2px 8px #0008; max-width: 240px;
+}
+.shade-control label { display: flex; flex-direction: column; gap: 0.25rem; }
+.shade-control select {
+  padding: 0.3rem; border-radius: 6px; border: 1px solid #333; background: var(--bg); color: var(--text);
+}
+#shade-legend { margin-top: 0.5rem; }
+.legend-bands { display: flex; gap: 2px; }
+.legend-bands span { flex: 1; height: 10px; }
+.legend-bands span:first-child { border-radius: 4px 0 0 4px; }
+.legend-bands span:last-child { border-radius: 0 4px 4px 0; }
+.legend-labels { display: flex; justify-content: space-between; color: var(--muted); font-size: 0.75rem; margin-top: 2px; }
+.legend-note { color: var(--muted); font-size: 0.75rem; margin-top: 0.25rem; }
+.leaflet-tooltip { background: var(--surface); color: var(--text); border: 0; }

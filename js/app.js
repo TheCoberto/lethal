@@ -1,11 +1,68 @@
 import { geocode, reverseGeocode, earthquakes, wildlife, crime, nationalRiskIndex, NRI_HAZARDS, traffic, airQuality, superfundSites, health, HEALTH_MEASURES } from './api.js';
 import { scoreDisasters, scoreWildlife, scoreCrime, scoreRoads, scoreEnvironment, scoreHealth, overall, color } from './score.js';
 import { CATEGORIES, topPlaces } from './rankings.js';
+import { choroplethLayer, BANDS } from './choropleth.js';
 
 const map = L.map('map', { worldCopyJump: true }).setView([39.5, -98.35], 4);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-  attribution: '&copy; OpenStreetMap &copy; CARTO', maxZoom: 18,
+
+// Esri dark gray canvas: free, no API key (CARTO's basemaps now require one).
+// Labels live in their own pane above the coloured regions so names stay readable.
+const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas';
+map.createPane('labels');
+map.getPane('labels').style.zIndex = 650;
+map.getPane('labels').style.pointerEvents = 'none';
+L.tileLayer(`${ESRI}/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}`, {
+  attribution: 'Tiles &copy; Esri, HERE, Garmin, &copy; OpenStreetMap contributors', maxZoom: 16,
 }).addTo(map);
+L.tileLayer(`${ESRI}/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}`, {
+  pane: 'labels', maxZoom: 16,
+}).addTo(map);
+
+// "Color map by" control: shades states/counties by a category's score.
+const canvas = L.canvas({ padding: 0.5 }); // canvas keeps ~3,000 county shapes fast
+let shading;
+let shadingRequest = 0;
+
+const shadeControl = L.control({ position: 'topright' });
+shadeControl.onAdd = () => {
+  const div = L.DomUtil.create('div', 'shade-control');
+  div.innerHTML = `
+    <label>Color map by
+      <select id="shade-cat">
+        <option value="">None</option>
+        ${Object.entries(CATEGORIES).map(([k, c]) => `<option value="${k}">${c.label}</option>`).join('')}
+      </select>
+    </label>
+    <div id="shade-legend" hidden>
+      <div class="legend-bands">${BANDS.map(b => `<span style="background:${b.fill}"></span>`).join('')}</div>
+      <div class="legend-labels"><span>0 · safer</span><span>more dangerous · 100</span></div>
+      <div class="legend-note" id="shade-note"></div>
+    </div>`;
+  L.DomEvent.disableClickPropagation(div);
+  L.DomEvent.disableScrollPropagation(div);
+  return div;
+};
+shadeControl.addTo(map);
+
+document.getElementById('shade-cat').addEventListener('change', async e => {
+  const key = e.target.value;
+  const request = ++shadingRequest;
+  const legend = document.getElementById('shade-legend');
+  const note = document.getElementById('shade-note');
+  shading?.remove();
+  shading = null;
+  legend.hidden = !key;
+  if (!key) return;
+  note.textContent = 'Loading…';
+  try {
+    const layer = await choroplethLayer(key, canvas);
+    if (request !== shadingRequest) return; // a newer selection won
+    shading = layer.addTo(map);
+    note.textContent = `By ${CATEGORIES[key].unit === 'states' ? 'state' : 'county'}. Hover for scores, click for details.`;
+  } catch (err) {
+    if (request === shadingRequest) note.textContent = `Couldn't load: ${err.message}`;
+  }
+});
 
 const panel = document.getElementById('panel');
 let marker;

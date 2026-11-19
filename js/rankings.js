@@ -1,5 +1,5 @@
 // "Most dangerous places" leaderboards. Each category returns [{ name, score, lat?, lon?, query? }].
-import { wildlife, crime, traffic, healthAllCounties, topRiskCounties } from './api.js';
+import { wildlife, crime, traffic, healthAllCounties, topRiskCounties, allRiskCounties } from './api.js';
 import { scoreWildlife, scoreCrime, scoreRoads, healthScore } from './score.js';
 
 const STATE_NAMES = {
@@ -53,6 +53,15 @@ export const CATEGORIES = {
     },
   },
 };
+
+/**
+ * Every scored place in a category, for colouring the map.
+ * County rows carry `fips`; state rows carry the full state `name`.
+ */
+export async function allScores(key) {
+  if (key === 'disasters') return allRiskCounties();
+  return (await CATEGORIES[key].load()).filter(r => r.score != null);
+}
 
 /** Top n places for a category, most dangerous first. */
 export async function topPlaces(key, n) {
