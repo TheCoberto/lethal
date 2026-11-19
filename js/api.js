@@ -188,3 +188,10 @@ export async function allRiskCounties() {
   })();
   return allRiskCache;
 }
+
+let countyCache;
+/** County homicide and crash death rates per 100k: { fips: [homicide, crash], US: [...] }. */
+export async function countyRates() {
+  countyCache ??= await (await fetch('data/counties.json')).json();
+  return countyCache;
+}

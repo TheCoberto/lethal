@@ -1,6 +1,6 @@
 // "Most dangerous places" leaderboards. Each category returns [{ name, score, lat?, lon?, query? }].
-import { wildlife, crime, traffic, healthAllCounties, topRiskCounties, allRiskCounties } from './api.js';
-import { scoreWildlife, scoreCrime, scoreRoads, healthScore } from './score.js';
+import { wildlife, crime, traffic, healthAllCounties, topRiskCounties, allRiskCounties, countyRates } from './api.js';
+import { scoreWildlife, scoreCrime, scoreRoads, scoreCrimeAt, scoreRoadsAt, healthScore } from './score.js';
 
 const STATE_NAMES = {
   AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California', CO: 'Colorado',
@@ -21,6 +21,18 @@ async function rankStates(scoreFor) {
     .filter(r => r.score != null);
 }
 
+/**
+ * Score every county with a county-first scorer. County names/coords come from the CDC
+ * county list. Rows scored from the state fallback are flagged `estimated`.
+ */
+async function rankCounties(scoreAt, loadStateData) {
+  const [rows, stateData, counties] = await Promise.all([healthAllCounties(), loadStateData(), countyRates()]);
+  return rows.map(c => {
+    const s = scoreAt(stateData, c.state, counties, c.fips);
+    return { fips: c.fips, name: c.name, lat: c.lat, lon: c.lon, score: s.score, estimated: !!s.estimated };
+  });
+}
+
 export const CATEGORIES = {
   disasters: {
     label: '🌋 Natural Disasters', unit: 'counties',
@@ -31,27 +43,29 @@ export const CATEGORIES = {
     load: async () => (await healthAllCounties()).map(c => ({ ...c, score: healthScore(c.rates) })),
   },
   crime: {
-    label: '🔪 Crime & Violence', unit: 'states',
-    load: async () => { const d = await crime(); return rankStates(s => scoreCrime(d, s).score); },
+    label: '🔪 Crime & Violence', unit: 'counties',
+    load: () => rankCounties(scoreCrimeAt, crime),
   },
   roads: {
-    label: '🚗 Roads', unit: 'states',
-    load: async () => { const d = await traffic(); return rankStates(s => scoreRoads(d, s).score); },
+    label: '🚗 Roads', unit: 'counties',
+    load: () => rankCounties(scoreRoadsAt, traffic),
   },
   wildlife: {
     label: '🐍 Wildlife', unit: 'states',
     load: async () => { const d = await wildlife(); return rankStates(s => scoreWildlife(d, s).score); },
   },
   overallCounties: {
-    // Disasters + Health are true county data; Crime + Roads are the county's state rates.
+    // Crime + Roads use county rates, falling back to the state where a county's are suppressed.
     label: '☠️ Overall by county (Disasters, Health, Crime, Roads)', unit: 'counties',
     load: async () => {
-      const [risk, healthRows, c, t] = await Promise.all([allRiskCounties(), healthAllCounties(), crime(), traffic()]);
+      const [risk, healthRows, stateCrime, stateRoads, counties] = await Promise.all(
+        [allRiskCounties(), healthAllCounties(), crime(), traffic(), countyRates()]);
       const riskByFips = new Map(risk.map(r => [r.fips, r.score]));
       return healthRows.map(c0 => {
         const scores = [
           riskByFips.get(c0.fips), healthScore(c0.rates),
-          scoreCrime(c, c0.state).score, scoreRoads(t, c0.state).score,
+          scoreCrimeAt(stateCrime, c0.state, counties, c0.fips).score,
+          scoreRoadsAt(stateRoads, c0.state, counties, c0.fips).score,
         ].filter(x => x != null);
         const score = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
         return { fips: c0.fips, name: c0.name, lat: c0.lat, lon: c0.lon, score };
@@ -82,5 +96,5 @@ export async function allScores(key) {
 /** Top n places for a category, most dangerous first. */
 export async function topPlaces(key, n) {
   const rows = await CATEGORIES[key].load(n);
-  return rows.filter(r => r.score != null).sort((a, b) => b.score - a.score).slice(0, n);
+  return rows.filter(r => r.score != null && !r.estimated).sort((a, b) => b.score - a.score).slice(0, n);
 }

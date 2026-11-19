@@ -1,5 +1,5 @@
-import { geocode, reverseGeocode, earthquakes, wildlife, crime, nationalRiskIndex, NRI_HAZARDS, traffic, airQuality, superfundSites, health, HEALTH_MEASURES } from './api.js';
-import { scoreDisasters, scoreWildlife, scoreCrime, scoreRoads, scoreEnvironment, scoreHealth, overall, color } from './score.js';
+import { geocode, reverseGeocode, earthquakes, wildlife, crime, nationalRiskIndex, NRI_HAZARDS, traffic, airQuality, superfundSites, health, HEALTH_MEASURES, countyRates } from './api.js';
+import { scoreDisasters, scoreWildlife, scoreCrimeAt, scoreRoadsAt, scoreEnvironment, scoreHealth, overall, color } from './score.js';
 import { CATEGORIES, topPlaces } from './rankings.js';
 import { choroplethLayer, BANDS } from './choropleth.js';
 
@@ -90,7 +90,7 @@ async function analyze(lat, lon) {
 
   try {
     const nriLookup = nationalRiskIndex(lat, lon).catch(() => null);
-    const [place, quakes, wild, crimes, nri, roads, air, sites, rates] = await Promise.all([
+    const [place, quakes, wild, crimes, nri, roads, air, sites, rates, counties] = await Promise.all([
       reverseGeocode(lat, lon), earthquakes(lat, lon), wildlife(), crime(),
       // optional sources: don't fail the whole lookup
       nriLookup,
@@ -98,13 +98,15 @@ async function analyze(lat, lon) {
       airQuality(lat, lon).catch(() => null),
       superfundSites(lat, lon).catch(() => null),
       nriLookup.then(n => health(n?.STCOFIPS)).catch(() => null), // CDC data is keyed by county FIPS
+      countyRates().catch(() => null),
     ]);
+    const fips = nri?.STCOFIPS;
 
     const categories = [
       { name: '🌋 Natural Disasters', ...scoreDisasters(nri, NRI_HAZARDS, quakes) },
       { name: '🐍 Wildlife', ...scoreWildlife(wild, place.state) },
-      { name: '🔪 Crime & Violence', ...scoreCrime(crimes, place.state) },
-      { name: '🚗 Roads', ...scoreRoads(roads, place.state) },
+      { name: '🔪 Crime & Violence', ...scoreCrimeAt(crimes, place.state, counties, fips) },
+      { name: '🚗 Roads', ...scoreRoadsAt(roads, place.state, counties, fips) },
       { name: '☣️ Environment', ...scoreEnvironment(air, place.state ? sites : null) },
       { name: '🦠 Health & Disease', ...scoreHealth(rates, HEALTH_MEASURES) },
     ];

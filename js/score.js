@@ -58,6 +58,39 @@ export function color(score) {
 }
 
 /** Traffic deaths per 100k: ~5 scores low, 25+ scores 100. */
+function vsUS(rate, us) {
+  const pct = Math.round(Math.abs(rate / us - 1) * 100);
+  return `${pct}% ${rate >= us ? 'above' : 'below'} the US average (${us})`;
+}
+
+/**
+ * County-first scorers. `counties` is data/counties.json ({ fips: [homicide, crash] } per 100k).
+ * When the county value is missing (small counties are suppressed), fall back to the state
+ * scorer and mark the result `estimated`.
+ */
+export function scoreCrimeAt(stateData, state, counties, fips) {
+  const homicide = counties?.[fips]?.[0];
+  if (homicide == null) {
+    const s = scoreCrime(stateData, state);
+    return s.score == null ? s : { ...s, estimated: true, details: [...s.details, 'No county homicide data here; using the state rate'] };
+  }
+  const details = [`${homicide} homicides per 100k residents per year (county)`, vsUS(homicide, counties.US[0])];
+  if (stateData[state]) details.push(`State: ~${stateData[state]} violent crimes per 100k`);
+  return { score: Math.min(100, Math.round((homicide / 20) * 100)), details };
+}
+
+export function scoreRoadsAt(stateData, state, counties, fips) {
+  const crash = counties?.[fips]?.[1];
+  if (crash == null) {
+    const s = scoreRoads(stateData, state);
+    return s.score == null ? s : { ...s, estimated: true, details: [...s.details, 'No county crash data here; using the state rate'] };
+  }
+  return {
+    score: Math.min(100, Math.round((crash / 25) * 100)),
+    details: [`${crash} traffic deaths per 100k residents per year (county)`, vsUS(crash, counties.US[1])],
+  };
+}
+
 export function scoreRoads(data, state) {
   const rate = state && data[state];
   if (!rate) return { score: null, details: ['No traffic data for this area yet (US states only)'] };
