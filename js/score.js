@@ -56,3 +56,32 @@ export function color(score) {
   if (score == null) return 'var(--muted)';
   return score < 34 ? 'var(--low)' : score < 67 ? 'var(--mid)' : 'var(--high)';
 }
+
+/** Traffic deaths per 100k: ~5 scores low, 25+ scores 100. */
+export function scoreRoads(data, state) {
+  const rate = state && data[state];
+  if (!rate) return { score: null, details: ['No traffic data for this area yet (US states only)'] };
+  const score = Math.min(100, Math.round((rate / 25) * 100));
+  const pct = Math.round(Math.abs(rate / data.US - 1) * 100);
+  return { score, details: [
+    `~${rate} traffic deaths per 100k residents per year (state)`,
+    `${pct}% ${rate >= data.US ? 'above' : 'below'} the US average (${data.US})`,
+  ] };
+}
+
+/** 30-day average US AQI: 0-50 good, 150+ unhealthy for everyone (scores 100). */
+export function scoreEnvironment(air) {
+  if (!air?.aqi.length) return { score: null, details: ['No air quality data for this area'] };
+  const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
+  const meanAqi = avg(air.aqi);
+  const days = Math.round(air.aqi.filter(v => v > 100).length / 24);
+  const label = meanAqi <= 50 ? 'Good' : meanAqi <= 100 ? 'Moderate' : meanAqi <= 150 ? 'Unhealthy for sensitive groups' : 'Unhealthy';
+  return {
+    score: Math.min(100, Math.round((meanAqi / 150) * 100)),
+    details: [
+      `30-day average AQI ${Math.round(meanAqi)} (${label})`,
+      `Peak AQI ${Math.round(Math.max(...air.aqi))}; ~${days} day(s) of unhealthy air`,
+      `Average PM2.5: ${avg(air.pm25).toFixed(1)} µg/m³ (WHO guideline: 5)`,
+    ],
+  };
+}

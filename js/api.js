@@ -71,3 +71,19 @@ export async function nationalRiskIndex(lat, lon) {
   const data = await (await fetch(`${NRI}?${params}`)).json();
   return data.features?.[0]?.attributes ?? null;
 }
+
+let trafficCache;
+/** State-level traffic deaths per 100k, keyed by US state code. */
+export async function traffic() {
+  trafficCache ??= await (await fetch('data/traffic.json')).json();
+  return trafficCache;
+}
+
+/** Hourly US AQI and PM2.5 for the past 30 days (Open-Meteo, worldwide). */
+export async function airQuality(lat, lon) {
+  const params = new URLSearchParams({
+    latitude: lat, longitude: lon, hourly: 'us_aqi,pm2_5', past_days: 30, forecast_days: 0,
+  });
+  const { hourly } = await (await fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?${params}`)).json();
+  return { aqi: hourly.us_aqi.filter(v => v != null), pm25: hourly.pm2_5.filter(v => v != null) };
+}

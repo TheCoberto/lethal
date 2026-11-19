@@ -9,6 +9,8 @@ Pick any place on the map and see how dangerous it is, broken down by category.
 | Natural disasters | [FEMA National Risk Index](https://hazards.fema.gov/nri/) (18 hazards, US counties) + [USGS earthquakes](https://earthquake.usgs.gov/fdsnws/event/1/) | Live; earthquakes only outside the US |
 | Wildlife | Curated `data/wildlife.json` (US states) | All 50 states + DC |
 | Crime & violence | FBI violent crime rates, `data/crime.json` (state level) | All 50 states + DC |
+| Roads | NHTSA/IIHS traffic deaths, `data/traffic.json` (state level) | All 50 states + DC |
+| Environment | [Open-Meteo Air Quality](https://open-meteo.com/en/docs/air-quality-api) (30-day AQI, PM2.5) | Live, worldwide |
 
 ## Run locally
 
