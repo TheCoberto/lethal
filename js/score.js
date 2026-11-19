@@ -15,6 +15,16 @@ export function scoreWildlife(data, state) {
   return { score: entry.score, details: entry.threats };
 }
 
+/** Violent crime rate per 100k: ~100 scores low, ~800 scores high. */
+export function scoreCrime(data, state) {
+  const rate = state && data[state];
+  if (!rate) return { score: null, details: ['No crime data for this area yet (US states only)'] };
+  const score = Math.min(100, Math.round((rate / 800) * 100));
+  const pct = Math.round(Math.abs(rate / data.US - 1) * 100);
+  const vs = `${pct}% ${rate >= data.US ? 'above' : 'below'} the US average (${data.US})`;
+  return { score, details: [`~${rate} violent crimes per 100k residents (state)`, vs, 'Varies a lot by city and neighborhood'] };
+}
+
 /** Average of the categories that have data. */
 export function overall(categories) {
   const scores = categories.map(c => c.score).filter(s => s != null);

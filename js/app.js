@@ -1,5 +1,5 @@
-import { geocode, reverseGeocode, earthquakes, wildlife } from './api.js';
-import { scoreEarthquakes, scoreWildlife, overall, color } from './score.js';
+import { geocode, reverseGeocode, earthquakes, wildlife, crime } from './api.js';
+import { scoreEarthquakes, scoreWildlife, scoreCrime, overall, color } from './score.js';
 
 const map = L.map('map', { worldCopyJump: true }).setView([39.5, -98.35], 4);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
@@ -27,17 +27,18 @@ document.getElementById('search-form').addEventListener('submit', async e => {
 async function analyze(lat, lon) {
   marker?.remove();
   marker = L.marker([lat, lon]).addTo(map);
+  history.replaceState(null, '', `#${lat.toFixed(4)},${lon.toFixed(4)}`);
   panel.innerHTML = '<p class="hint">Analyzing…</p>';
 
   try {
-    const [place, quakes, wild] = await Promise.all([
-      reverseGeocode(lat, lon), earthquakes(lat, lon), wildlife(),
+    const [place, quakes, wild, crimes] = await Promise.all([
+      reverseGeocode(lat, lon), earthquakes(lat, lon), wildlife(), crime(),
     ]);
 
     const categories = [
       { name: '🌋 Natural Disasters', ...scoreEarthquakes(quakes) },
       { name: '🐍 Wildlife', ...scoreWildlife(wild, place.state) },
-      { name: '🔪 Crime & Violence', score: null, details: ['Coming soon'], pending: true },
+      { name: '🔪 Crime & Violence', ...scoreCrime(crimes, place.state) },
     ];
     render(place.name, categories);
   } catch (err) {
@@ -64,6 +65,13 @@ function card(c) {
       <div class="bar"><span style="width:${c.score ?? 0}%;background:${color(c.score)}"></span></div>
       <ul>${c.details.map(d => `<li>${escape(d)}</li>`).join('')}</ul>
     </div>`;
+}
+
+// Shareable links: #lat,lon in the URL reopens that spot.
+const [hLat, hLon] = location.hash.slice(1).split(',').map(Number);
+if (location.hash.length > 1 && Number.isFinite(hLat) && Number.isFinite(hLon)) {
+  map.setView([hLat, hLon], 8);
+  analyze(hLat, hLon);
 }
 
 const ENTITIES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };

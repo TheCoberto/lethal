@@ -43,3 +43,10 @@ export async function wildlife() {
   wildlifeCache ??= await (await fetch('data/wildlife.json')).json();
   return wildlifeCache;
 }
+
+let crimeCache;
+/** State-level violent crime rates per 100k, keyed by US state code. */
+export async function crime() {
+  crimeCache ??= await (await fetch('data/crime.json')).json();
+  return crimeCache;
+}

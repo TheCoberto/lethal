@@ -2,13 +2,13 @@
 
 Pick any place on the map and see how dangerous it is, broken down by category.
 
-**Status:** early scaffold.
+**Live:** https://thecoberto.github.io/lethal/
 
 | Category | Source | Status |
 |---|---|---|
 | Natural disasters | [USGS Earthquake API](https://earthquake.usgs.gov/fdsnws/event/1/) | Earthquakes live |
-| Wildlife | Curated `data/wildlife.json` (US states) | 10 states |
-| Crime & violence | FBI Crime Data Explorer | Planned |
+| Wildlife | Curated `data/wildlife.json` (US states) | All 50 states + DC |
+| Crime & violence | FBI violent crime rates, `data/crime.json` (state level) | All 50 states + DC |
 
 ## Run locally
 
@@ -34,8 +34,10 @@ data/             static datasets
 ## Roadmap
 
 - [ ] FEMA National Risk Index (floods, hurricanes, tornadoes, wildfire...)
-- [ ] Crime data (FBI CDE)
-- [ ] Wildlife data for all 50 states, then other countries
+- [x] Crime data (state level; city/county next)
+- [x] Wildlife data for all 50 states + DC
+- [x] Shareable links (`#lat,lon` in the URL)
+- [ ] Wildlife data for other countries
 - [ ] Compare two places side by side
 - [ ] PWA: installable and offline
 
