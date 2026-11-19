@@ -10,7 +10,7 @@ Pick any place on the map and see how dangerous it is, broken down by category.
 | Wildlife | Curated `data/wildlife.json` (US states) | All 50 states + DC |
 | Crime & violence | FBI violent crime rates, `data/crime.json` (state level) | All 50 states + DC |
 | Roads | NHTSA/IIHS traffic deaths, `data/traffic.json` (state level) | All 50 states + DC |
-| Environment | [Open-Meteo Air Quality](https://open-meteo.com/en/docs/air-quality-api) (30-day AQI, PM2.5) | Live, worldwide |
+| Environment | [Open-Meteo Air Quality](https://open-meteo.com/en/docs/air-quality-api) (30-day AQI, PM2.5) + [EPA Superfund NPL sites](https://www.epa.gov/superfund/search-superfund-sites-where-you-live) within 10 mi | Air worldwide; Superfund US only |
 
 ## Run locally
 

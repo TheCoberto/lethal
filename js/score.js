@@ -69,19 +69,44 @@ export function scoreRoads(data, state) {
   ] };
 }
 
-/** 30-day average US AQI: 0-50 good, 150+ unhealthy for everyone (scores 100). */
-export function scoreEnvironment(air) {
-  if (!air?.aqi.length) return { score: null, details: ['No air quality data for this area'] };
-  const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
-  const meanAqi = avg(air.aqi);
-  const days = Math.round(air.aqi.filter(v => v > 100).length / 24);
-  const label = meanAqi <= 50 ? 'Good' : meanAqi <= 100 ? 'Moderate' : meanAqi <= 150 ? 'Unhealthy for sensitive groups' : 'Unhealthy';
-  return {
-    score: Math.min(100, Math.round((meanAqi / 150) * 100)),
-    details: [
+/**
+ * Environment = average of the parts that have data:
+ *  - air: 30-day average US AQI (0-50 good, 150+ unhealthy for everyone scores 100)
+ *  - Superfund: each active site within 10 mi adds up to 25, more the closer it is
+ * `sites` is null when unavailable (outside the US or the lookup failed).
+ */
+export function scoreEnvironment(air, sites) {
+  const parts = [];
+  const details = [];
+
+  if (air?.aqi.length) {
+    const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
+    const meanAqi = avg(air.aqi);
+    const days = Math.round(air.aqi.filter(v => v > 100).length / 24);
+    const label = meanAqi <= 50 ? 'Good' : meanAqi <= 100 ? 'Moderate' : meanAqi <= 150 ? 'Unhealthy for sensitive groups' : 'Unhealthy';
+    parts.push(Math.min(100, (meanAqi / 150) * 100));
+    details.push(
       `30-day average AQI ${Math.round(meanAqi)} (${label})`,
       `Peak AQI ${Math.round(Math.max(...air.aqi))}; ~${days} day(s) of unhealthy air`,
       `Average PM2.5: ${avg(air.pm25).toFixed(1)} µg/m³ (WHO guideline: 5)`,
-    ],
-  };
+    );
+  } else {
+    details.push('No air quality data for this area');
+  }
+
+  if (sites) {
+    parts.push(Math.min(100, sites.reduce((sum, s) => sum + 25 * Math.max(0, 1 - s.miles / 10), 0)));
+    if (sites.length) {
+      const proposed = sites.filter(s => s.proposed).length;
+      details.push(
+        `${sites.length} Superfund site(s) within 10 mi${proposed ? ` (${proposed} proposed)` : ''}`,
+        ...sites.slice(0, 2).map(s => `☢ ${s.name}, ${s.city}: ${s.miles.toFixed(1)} mi`),
+      );
+    } else {
+      details.push('No active Superfund sites within 10 mi');
+    }
+  }
+
+  const score = parts.length ? Math.round(parts.reduce((a, b) => a + b, 0) / parts.length) : null;
+  return { score, details };
 }

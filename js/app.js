@@ -1,4 +1,4 @@
-import { geocode, reverseGeocode, earthquakes, wildlife, crime, nationalRiskIndex, NRI_HAZARDS, traffic, airQuality } from './api.js';
+import { geocode, reverseGeocode, earthquakes, wildlife, crime, nationalRiskIndex, NRI_HAZARDS, traffic, airQuality, superfundSites } from './api.js';
 import { scoreDisasters, scoreWildlife, scoreCrime, scoreRoads, scoreEnvironment, overall, color } from './score.js';
 
 const map = L.map('map', { worldCopyJump: true }).setView([39.5, -98.35], 4);
@@ -31,12 +31,13 @@ async function analyze(lat, lon) {
   panel.innerHTML = '<p class="hint">Analyzing…</p>';
 
   try {
-    const [place, quakes, wild, crimes, nri, roads, air] = await Promise.all([
+    const [place, quakes, wild, crimes, nri, roads, air, sites] = await Promise.all([
       reverseGeocode(lat, lon), earthquakes(lat, lon), wildlife(), crime(),
       // optional sources: don't fail the whole lookup
       nationalRiskIndex(lat, lon).catch(() => null),
       traffic(),
       airQuality(lat, lon).catch(() => null),
+      superfundSites(lat, lon).catch(() => null),
     ]);
 
     const categories = [
@@ -44,7 +45,7 @@ async function analyze(lat, lon) {
       { name: '🐍 Wildlife', ...scoreWildlife(wild, place.state) },
       { name: '🔪 Crime & Violence', ...scoreCrime(crimes, place.state) },
       { name: '🚗 Roads', ...scoreRoads(roads, place.state) },
-      { name: '☣️ Environment', ...scoreEnvironment(air) },
+      { name: '☣️ Environment', ...scoreEnvironment(air, place.state ? sites : null) },
     ];
     render(place.name, categories);
   } catch (err) {

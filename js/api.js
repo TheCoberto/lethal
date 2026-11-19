@@ -87,3 +87,30 @@ export async function airQuality(lat, lon) {
   const { hourly } = await (await fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?${params}`)).json();
   return { aqi: hourly.us_aqi.filter(v => v != null), pm25: hourly.pm2_5.filter(v => v != null) };
 }
+
+const NPL = 'https://services.arcgis.com/cJ9YHowT8TU7DUyn/arcgis/rest/services/Superfund_National_Priorities_List_(NPL)_Sites_with_Status_Information/FeatureServer/0/query';
+
+/** Active and proposed EPA Superfund (NPL) sites within radiusMi, nearest first. US only. */
+export async function superfundSites(lat, lon, radiusMi = 10) {
+  const params = new URLSearchParams({
+    geometry: `${lon},${lat}`, geometryType: 'esriGeometryPoint', inSR: 4326,
+    spatialRel: 'esriSpatialRelIntersects', distance: radiusMi, units: 'esriSRUnit_StatuteMile',
+    where: "Status <> 'Deleted NPL Site'", outFields: 'Site_Name,City,Status,Latitude,Longitude',
+    returnGeometry: false, f: 'json',
+  });
+  const data = await (await fetch(`${NPL}?${params}`)).json();
+  if (data.error) throw new Error(data.error.message);
+  return data.features
+    .map(({ attributes: a }) => ({
+      name: a.Site_Name, city: a.City, proposed: a.Status.startsWith('Proposed'),
+      miles: milesBetween(lat, lon, a.Latitude, a.Longitude),
+    }))
+    .sort((a, b) => a.miles - b.miles);
+}
+
+function milesBetween(lat1, lon1, lat2, lon2) {
+  const rad = d => (d * Math.PI) / 180;
+  const h = Math.sin(rad(lat2 - lat1) / 2) ** 2
+    + Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(rad(lon2 - lon1) / 2) ** 2;
+  return 3958.8 * 2 * Math.asin(Math.sqrt(h));
+}
