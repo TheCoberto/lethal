@@ -6,7 +6,7 @@ Pick any place on the map and see how dangerous it is, broken down by category.
 
 | Category | Source | Status |
 |---|---|---|
-| Natural disasters | [FEMA National Risk Index](https://hazards.fema.gov/nri/) (18 hazards, US counties) + [USGS earthquakes](https://earthquake.usgs.gov/fdsnws/event/1/) | Live; earthquakes only outside the US |
+| Natural disasters | [FEMA National Risk Index](https://hazards.fema.gov/nri/) expected annual deaths per 100k (18 hazards, US counties) + [USGS earthquakes](https://earthquake.usgs.gov/fdsnws/event/1/) | Live; earthquakes only outside the US |
 | Wildlife | Curated `data/wildlife.json` (US states) | All 50 states + DC |
 | Crime & violence | County homicide deaths per 100k ([County Health Rankings](https://www.countyhealthrankings.org/), `data/counties.json`); state FBI violent crime rate as fallback | US counties |
 | Roads | County motor-vehicle crash deaths per 100k (County Health Rankings, `data/counties.json`); state NHTSA rate as fallback | US counties |

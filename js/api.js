@@ -1,3 +1,5 @@
+import { disasterDeathScore } from './score.js';
+
 // All network calls live here so they're easy to swap or cache later.
 
 const NOMINATIM = 'https://nominatim.openstreetmap.org';
@@ -67,8 +69,8 @@ export async function nationalRiskIndex(lat, lon) {
   const params = new URLSearchParams({
     geometry: `${lon},${lat}`, geometryType: 'esriGeometryPoint', inSR: 4326,
     spatialRel: 'esriSpatialRelIntersects', returnGeometry: false, f: 'json',
-    outFields: ['COUNTY', 'COUNTYTYPE', 'STATEABBRV', 'STCOFIPS', 'RISK_SCORE', 'RISK_RATNG',
-      ...Object.keys(NRI_HAZARDS).flatMap(k => [`${k}_RISKS`, `${k}_RISKR`])].join(','),
+    outFields: ['COUNTY', 'COUNTYTYPE', 'STATEABBRV', 'STCOFIPS', 'POPULATION', 'EAL_VALP',
+      ...Object.keys(NRI_HAZARDS).map(k => `${k}_EALP`)].join(','),
   });
   const data = await (await fetch(`${NRI}?${params}`)).json();
   return data.features?.[0]?.attributes ?? null;
@@ -157,43 +159,38 @@ export async function healthAllCounties() {
   return allHealthCache;
 }
 
-/** Top N US counties by FEMA National Risk Index composite score. */
-export async function topRiskCounties(n) {
-  const params = new URLSearchParams({
-    where: 'RISK_SCORE IS NOT NULL', orderByFields: 'RISK_SCORE DESC', resultRecordCount: n,
-    outFields: 'COUNTY,COUNTYTYPE,STATEABBRV,RISK_SCORE', returnGeometry: false,
-    returnCentroid: true, outSR: 4326, f: 'json',
-  });
-  const data = await (await fetch(`${NRI}?${params}`)).json();
-  if (data.error) throw new Error(data.error.message);
-  return data.features.map(({ attributes: a, centroid }) => ({
-    name: `${a.COUNTY} ${a.COUNTYTYPE}, ${a.STATEABBRV}`, score: Math.round(a.RISK_SCORE),
-    lat: centroid?.y, lon: centroid?.x,
-  }));
-}
-
-/** Every US county's FEMA NRI composite score as [{ fips, score }] (paged: the service caps pages at 2000). */
-let allRiskCache;
-export async function allRiskCounties() {
-  allRiskCache ??= (async () => {
-    const rows = [];
-    for (let offset = 0; ; offset += 2000) {
-      const params = new URLSearchParams({
-        where: 'RISK_SCORE IS NOT NULL', outFields: 'STCOFIPS,RISK_SCORE', orderByFields: 'STCOFIPS',
-        returnGeometry: false, resultOffset: offset, resultRecordCount: 2000, f: 'json',
-      });
-      const data = await (await fetch(`${NRI}?${params}`)).json();
-      if (data.error) throw new Error(data.error.message);
-      rows.push(...data.features.map(({ attributes: a }) => ({ fips: a.STCOFIPS, score: Math.round(a.RISK_SCORE) })));
-      if (!data.exceededTransferLimit) return rows;
-    }
-  })();
-  return allRiskCache;
-}
 
 let countyCache;
 /** County homicide and crash death rates per 100k: { fips: [homicide, crash], US: [...] }. */
 export async function countyRates() {
   countyCache ??= await (await fetch('data/counties.json')).json();
   return countyCache;
+}
+
+/**
+ * Every US county's FEMA expected annual deaths from natural hazards, scored per capita:
+ * [{ fips, name, lat, lon, score }]. Paged because the service caps pages at 2000.
+ */
+let allRiskCache;
+export async function allRiskCounties() {
+  allRiskCache ??= (async () => {
+    const rows = [];
+    for (let offset = 0; ; offset += 2000) {
+      const params = new URLSearchParams({
+        where: 'EAL_VALP IS NOT NULL AND POPULATION > 0', orderByFields: 'STCOFIPS',
+        outFields: 'STCOFIPS,COUNTY,COUNTYTYPE,STATEABBRV,POPULATION,EAL_VALP',
+        returnGeometry: false, returnCentroid: true, outSR: 4326,
+        resultOffset: offset, resultRecordCount: 2000, f: 'json',
+      });
+      const data = await (await fetch(`${NRI}?${params}`)).json();
+      if (data.error) throw new Error(data.error.message);
+      rows.push(...data.features.map(({ attributes: a, centroid }) => ({
+        fips: a.STCOFIPS, name: `${a.COUNTY} ${a.COUNTYTYPE}, ${a.STATEABBRV}`,
+        lat: centroid?.y, lon: centroid?.x, score: disasterDeathScore(a.EAL_VALP, a.POPULATION),
+        tooSmall: a.POPULATION < 10000, // per-capita rates swing wildly in tiny counties; kept off rankings
+      })));
+      if (!data.exceededTransferLimit) return rows;
+    }
+  })();
+  return allRiskCache;
 }

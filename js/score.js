@@ -16,23 +16,37 @@ export function scoreWildlife(data, state) {
 }
 
 /**
- * FEMA NRI composite score (national percentile, 0-100) for US counties,
- * plus the top hazards. Falls back to earthquakes alone outside the US.
+ * FEMA expected annual deaths from natural hazards (injuries counted as a fraction of a death),
+ * per 100k residents: 0 scores 0, 3+ per 100k scores 100.
  */
+export function disasterDeathScore(deaths, population) {
+  if (deaths == null || !population) return null;
+  return Math.min(100, Math.round((deaths / population) * 1e5 / 3 * 100));
+}
+
+/** County expected deaths from FEMA's National Risk Index; falls back to earthquakes alone outside the US. */
 export function scoreDisasters(nri, hazardNames, quakes) {
   const quake = scoreEarthquakes(quakes);
-  if (!nri || nri.RISK_SCORE == null) {
+  const score = disasterDeathScore(nri?.EAL_VALP, nri?.POPULATION);
+  if (score == null) {
     return { score: quake.score, details: ['FEMA risk data is US-only; earthquakes only here', ...quake.details] };
   }
+  const deaths = nri.EAL_VALP;
   const top = Object.entries(hazardNames)
-    .map(([k, name]) => ({ name, score: nri[`${k}_RISKS`], rating: nri[`${k}_RISKR`] }))
-    .filter(h => h.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 4)
-    .map(h => `${h.name}: ${h.rating} (${Math.round(h.score)})`);
+    .map(([k, name]) => ({ name, deaths: nri[`${k}_EALP`] }))
+    .filter(h => h.deaths > 0)
+    .sort((a, b) => b.deaths - a.deaths)
+    .slice(0, 3)
+    .map(h => `${h.name}: ${Math.round((h.deaths / deaths) * 100)}% of expected deaths`);
+  const perCapita = (deaths / nri.POPULATION) * 1e5;
   return {
-    score: Math.round(nri.RISK_SCORE),
-    details: [`${nri.COUNTY} ${nri.COUNTYTYPE ?? 'County'} overall risk: ${nri.RISK_RATNG}`, ...top, quake.details[0]],
+    score,
+    details: [
+      `~${deaths < 10 ? deaths.toFixed(1) : Math.round(deaths)} expected deaths per year in ${nri.COUNTY} ${nri.COUNTYTYPE ?? 'County'} (FEMA)`,
+      `${perCapita.toFixed(2)} per 100k residents`,
+      ...top,
+      quake.details[0],
+    ],
   };
 }
 
