@@ -44,7 +44,7 @@ data/             static datasets
 - [x] Rankings: top 10-100 most dangerous counties/states per category
 - [x] Color the map by any category (state or county shading)
 - [x] Overall county score (FEMA disasters + CDC health + state crime and roads) for rankings and the map
-- [ ] Compare two places side by side
+- [x] Compare two places side by side (shareable as `#lat,lon;lat,lon`)
 - [ ] PWA: installable and offline
 
 Scores are relative estimates for curiosity, not safety advice.

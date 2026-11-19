@@ -82,50 +82,166 @@ document.getElementById('search-form').addEventListener('submit', async e => {
   }
 });
 
+// Compare mode: `current` is the place on screen; when `comparing` is set, the next
+// place picked (map click, search or ranking) is compared against it.
+let current = null;
+let comparing = false;
+let markerB;
+let analyzeRequest = 0;
+
+const coord = p => `${p.lat.toFixed(4)},${p.lon.toFixed(4)}`;
+
+function placeMarker(lat, lon, label) {
+  const icon = label && L.divIcon({ className: 'pin-label', html: label, iconSize: [26, 26] });
+  return L.marker([lat, lon], icon ? { icon } : {}).addTo(map);
+}
+
 async function analyze(lat, lon) {
+  if (comparing && current) return compareWith(lat, lon);
+  const request = ++analyzeRequest;
   marker?.remove();
-  marker = L.marker([lat, lon]).addTo(map);
+  markerB?.remove();
+  marker = placeMarker(lat, lon);
   history.replaceState(null, '', `#${lat.toFixed(4)},${lon.toFixed(4)}`);
   panel.innerHTML = '<p class="hint">Analyzing…</p>';
-
   try {
-    const nriLookup = nationalRiskIndex(lat, lon).catch(() => null);
-    const [place, quakes, wild, crimes, nri, roads, air, sites, rates, counties] = await Promise.all([
-      reverseGeocode(lat, lon), earthquakes(lat, lon), wildlife(), crime(),
-      // optional sources: don't fail the whole lookup
-      nriLookup,
-      traffic(),
-      airQuality(lat, lon).catch(() => null),
-      superfundSites(lat, lon).catch(() => null),
-      nriLookup.then(n => health(n?.STCOFIPS)).catch(() => null), // CDC data is keyed by county FIPS
-      countyRates().catch(() => null),
-    ]);
-    const fips = nri?.STCOFIPS;
-
-    const categories = [
-      { name: '🌋 Natural Disasters', ...scoreDisasters(nri, NRI_HAZARDS, quakes) },
-      { name: '🐍 Wildlife', ...scoreWildlife(wild, place.state) },
-      { name: '🔪 Crime & Violence', ...scoreCrimeAt(crimes, place.state, counties, fips) },
-      { name: '🚗 Roads', ...scoreRoadsAt(roads, place.state, counties, fips) },
-      { name: '☣️ Environment', ...scoreEnvironment(air, place.state ? sites : null) },
-      { name: '🦠 Health & Disease', ...scoreHealth(rates, HEALTH_MEASURES) },
-    ];
-    render(place.name, categories);
+    const place = await assess(lat, lon);
+    if (request !== analyzeRequest) return;
+    current = place;
+    render(place);
   } catch (err) {
-    panel.innerHTML = `<p class="hint">Something went wrong: ${escape(err.message)}</p>`;
+    if (request === analyzeRequest) panel.innerHTML = `<p class="hint">Something went wrong: ${escape(err.message)}</p>`;
   }
 }
 
-function render(name, categories) {
-  const total = overall(categories);
+async function compareWith(lat, lon) {
+  const request = ++analyzeRequest;
+  const a = current;
+  comparing = false;
+  markerB?.remove();
+  marker?.remove();
+  marker = placeMarker(a.lat, a.lon, 'A');
+  markerB = placeMarker(lat, lon, 'B');
+  map.fitBounds(L.latLngBounds([[a.lat, a.lon], [lat, lon]]), { padding: [60, 60], maxZoom: 8 });
+  history.replaceState(null, '', `#${coord(a)};${lat.toFixed(4)},${lon.toFixed(4)}`);
+  panel.innerHTML = '<p class="hint">Comparing…</p>';
+  try {
+    const b = await assess(lat, lon);
+    if (request === analyzeRequest) renderCompare(a, b);
+  } catch (err) {
+    if (request === analyzeRequest) panel.innerHTML = `<p class="hint">Something went wrong: ${escape(err.message)}</p>`;
+  }
+}
+
+/** Fetch every source for a point and score it: { lat, lon, name, categories, total }. */
+async function assess(lat, lon) {
+  const nriLookup = nationalRiskIndex(lat, lon).catch(() => null);
+  const [place, quakes, wild, crimes, nri, roads, air, sites, rates, counties] = await Promise.all([
+    reverseGeocode(lat, lon), earthquakes(lat, lon), wildlife(), crime(),
+    // optional sources: don't fail the whole lookup
+    nriLookup,
+    traffic(),
+    airQuality(lat, lon).catch(() => null),
+    superfundSites(lat, lon).catch(() => null),
+    nriLookup.then(n => health(n?.STCOFIPS)).catch(() => null), // CDC data is keyed by county FIPS
+    countyRates().catch(() => null),
+  ]);
+  const fips = nri?.STCOFIPS;
+
+  const categories = [
+    { name: '🌋 Natural Disasters', ...scoreDisasters(nri, NRI_HAZARDS, quakes) },
+    { name: '🐍 Wildlife', ...scoreWildlife(wild, place.state) },
+    { name: '🔪 Crime & Violence', ...scoreCrimeAt(crimes, place.state, counties, fips) },
+    { name: '🚗 Roads', ...scoreRoadsAt(roads, place.state, counties, fips) },
+    { name: '☣️ Environment', ...scoreEnvironment(air, place.state ? sites : null) },
+    { name: '🦠 Health & Disease', ...scoreHealth(rates, HEALTH_MEASURES) },
+  ];
+  return { lat, lon, name: place.name, categories, total: overall(categories) };
+}
+
+function render(place) {
+  const { name, categories, total } = place;
   panel.innerHTML = `
     <p class="place">${escape(name)}</p>
     <div class="overall">
       <div class="score" style="color:${color(total)}">${total ?? '—'}</div>
       <div class="label">Lethality Score</div>
     </div>
+    <div class="actions" id="compare-actions">
+      <button type="button" class="secondary" id="compare-btn">⚖️ Compare with another place</button>
+    </div>
     ${categories.map(card).join('')}
   `;
+  document.getElementById('compare-btn').onclick = startCompare;
+}
+
+function startCompare() {
+  comparing = true;
+  const box = document.getElementById('compare-actions');
+  box.innerHTML = `
+    <p class="hint">Now click the map, search, or pick from Rankings to choose a second place.</p>
+    <button type="button" class="secondary" id="compare-cancel">Cancel</button>`;
+  document.getElementById('compare-cancel').onclick = () => { comparing = false; render(current); };
+}
+
+function renderCompare(a, b) {
+  const diff = (a.total ?? 0) - (b.total ?? 0);
+  const verdict = a.total == null || b.total == null ? ''
+    : diff === 0 ? 'Equally lethal overall.'
+    : `<b>${escape((diff > 0 ? a : b).name)}</b> is more dangerous by ${Math.abs(diff)} point${Math.abs(diff) === 1 ? '' : 's'}.`;
+
+  const cell = (score, other) => `
+    <td class="${score != null && other != null && score > other ? 'worse' : ''}">
+      <span style="color:${color(score)}">${score ?? '—'}</span>
+      <div class="bar"><span style="width:${score ?? 0}%;background:${color(score)}"></span></div>
+    </td>`;
+
+  panel.innerHTML = `
+    <table class="compare">
+      <thead><tr>
+        <th></th>
+        <th><button type="button" class="link" data-pick="a"><span class="tag">A</span>${escape(a.name)}</button></th>
+        <th><button type="button" class="link" data-pick="b"><span class="tag">B</span>${escape(b.name)}</button></th>
+      </tr></thead>
+      <tbody>
+        <tr class="total"><th>☠️ Lethality</th>${cell(a.total, b.total)}${cell(b.total, a.total)}</tr>
+        ${a.categories.map((c, i) => `
+          <tr><th>${c.name}</th>${cell(c.score, b.categories[i].score)}${cell(b.categories[i].score, c.score)}</tr>`).join('')}
+      </tbody>
+    </table>
+    <p class="verdict">${verdict}</p>
+    <p class="hint">Higher scores are more dangerous; the worse of each pair is highlighted. Click a name for its full breakdown.</p>
+    <div class="actions">
+      <button type="button" class="secondary" id="compare-swap">⇄ Swap</button>
+      <button type="button" class="secondary" id="compare-done">Done</button>
+    </div>`;
+
+  // Clicking a name shows that place's full breakdown (and makes it the current place).
+  panel.querySelectorAll('[data-pick]').forEach(btn => btn.onclick = () => {
+    const p = btn.dataset.pick === 'a' ? a : b;
+    current = p;
+    markerB?.remove();
+    marker?.remove();
+    marker = placeMarker(p.lat, p.lon);
+    history.replaceState(null, '', `#${coord(p)}`);
+    render(p);
+  });
+  document.getElementById('compare-swap').onclick = () => {
+    marker?.remove(); markerB?.remove();
+    marker = placeMarker(b.lat, b.lon, 'A');
+    markerB = placeMarker(a.lat, a.lon, 'B');
+    history.replaceState(null, '', `#${coord(b)};${coord(a)}`);
+    current = b;
+    renderCompare(b, a);
+  };
+  document.getElementById('compare-done').onclick = () => {
+    markerB?.remove();
+    marker?.remove();
+    marker = placeMarker(a.lat, a.lon);
+    history.replaceState(null, '', `#${coord(a)}`);
+    current = a;
+    render(a);
+  };
 }
 
 function card(c) {
@@ -189,11 +305,27 @@ async function goTo(row) {
   }
 }
 
-// Shareable links: #lat,lon in the URL reopens that spot.
-const [hLat, hLon] = location.hash.slice(1).split(',').map(Number);
-if (location.hash.length > 1 && Number.isFinite(hLat) && Number.isFinite(hLon)) {
-  map.setView([hLat, hLon], 8);
-  analyze(hLat, hLon);
+// Shareable links: #lat,lon reopens a spot; #lat,lon;lat,lon reopens a comparison.
+const hashPoints = location.hash.slice(1).split(';')
+  .map(p => p.split(',').map(Number))
+  .filter(([la, lo]) => Number.isFinite(la) && Number.isFinite(lo));
+if (location.hash.length > 1 && hashPoints.length) {
+  const [[aLat, aLon], second] = hashPoints;
+  map.setView([aLat, aLon], 8);
+  if (second) {
+    (async () => {
+      panel.innerHTML = '<p class="hint">Comparing…</p>';
+      try {
+        current = await assess(aLat, aLon);
+        comparing = true;
+        compareWith(...second);
+      } catch (err) {
+        panel.innerHTML = `<p class="hint">Something went wrong: ${escape(err.message)}</p>`;
+      }
+    })();
+  } else {
+    analyze(aLat, aLon);
+  }
 }
 
 const ENTITIES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
