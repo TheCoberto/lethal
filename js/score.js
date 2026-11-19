@@ -70,7 +70,7 @@ export function scoreRoads(data, state) {
 }
 
 /**
- * Environment = average of the parts that have data:
+ * Environment = weighted average of the parts that have data (air counts 2x, Superfund 1x):
  *  - air: 30-day average US AQI (0-50 good, 150+ unhealthy for everyone scores 100)
  *  - Superfund: each active site within 10 mi adds up to 25, more the closer it is
  * `sites` is null when unavailable (outside the US or the lookup failed).
@@ -84,7 +84,7 @@ export function scoreEnvironment(air, sites) {
     const meanAqi = avg(air.aqi);
     const days = Math.round(air.aqi.filter(v => v > 100).length / 24);
     const label = meanAqi <= 50 ? 'Good' : meanAqi <= 100 ? 'Moderate' : meanAqi <= 150 ? 'Unhealthy for sensitive groups' : 'Unhealthy';
-    parts.push(Math.min(100, (meanAqi / 150) * 100));
+    parts.push({ score: Math.min(100, (meanAqi / 150) * 100), weight: 2 });
     details.push(
       `30-day average AQI ${Math.round(meanAqi)} (${label})`,
       `Peak AQI ${Math.round(Math.max(...air.aqi))}; ~${days} day(s) of unhealthy air`,
@@ -95,7 +95,7 @@ export function scoreEnvironment(air, sites) {
   }
 
   if (sites) {
-    parts.push(Math.min(100, sites.reduce((sum, s) => sum + 25 * Math.max(0, 1 - s.miles / 10), 0)));
+    parts.push({ score: Math.min(100, sites.reduce((sum, s) => sum + 25 * Math.max(0, 1 - s.miles / 10), 0)), weight: 1 });
     if (sites.length) {
       const proposed = sites.filter(s => s.proposed).length;
       details.push(
@@ -107,6 +107,7 @@ export function scoreEnvironment(air, sites) {
     }
   }
 
-  const score = parts.length ? Math.round(parts.reduce((a, b) => a + b, 0) / parts.length) : null;
+  const totalWeight = parts.reduce((sum, p) => sum + p.weight, 0);
+  const score = parts.length ? Math.round(parts.reduce((sum, p) => sum + p.score * p.weight, 0) / totalWeight) : null;
   return { score, details };
 }
